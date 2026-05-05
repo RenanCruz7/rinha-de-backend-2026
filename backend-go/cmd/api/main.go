@@ -17,6 +17,10 @@ func main() {
 		Addr:              ":9999",
 		Handler:           handler.Routes(),
 		ReadHeaderTimeout: 2 * time.Second,
+		ReadTimeout:       5 * time.Second,
+		WriteTimeout:      5 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    1 << 20, // 1 MiB
 	}
 
 	log.Printf("listening on %s", server.Addr)

@@ -21,6 +21,12 @@ func (e engineStub) Evaluate(_ context.Context, _ fraud.FraudScoreRequest) (frau
 	return e.response, e.err
 }
 
+type panicEngineStub struct{}
+
+func (panicEngineStub) Evaluate(_ context.Context, _ fraud.FraudScoreRequest) (fraud.FraudScoreResponse, error) {
+	panic("unexpected panic from engine")
+}
+
 func TestReady(t *testing.T) {
 	h := NewHandler(engineStub{})
 	req := httptest.NewRequest(http.MethodGet, "/ready", nil)
@@ -116,7 +122,45 @@ func TestFraudScoreEngineError(t *testing.T) {
 	rr := httptest.NewRecorder()
 	h.Routes().ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusInternalServerError {
-		t.Fatalf("expected status 500, got %d", rr.Code)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rr.Code)
+	}
+
+	var got fraud.FraudScoreResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if got.Approved != true || got.FraudScore != 0 {
+		t.Fatalf("unexpected fallback response: %+v", got)
+	}
+}
+
+func TestFraudScoreEnginePanicFallback(t *testing.T) {
+	h := NewHandler(panicEngineStub{})
+	payload := `{
+		"id":"tx-1",
+		"transaction":{"amount":384.88,"installments":3,"requested_at":"2026-03-11T20:23:35Z"},
+		"customer":{"avg_amount":769.76,"tx_count_24h":3,"known_merchants":["MERC-009"]},
+		"merchant":{"id":"MERC-001","mcc":"5912","avg_amount":298.95},
+		"terminal":{"is_online":false,"card_present":true,"km_from_home":13.7},
+		"last_transaction":null
+	}`
+
+	req := httptest.NewRequest(http.MethodPost, "/fraud-score", bytes.NewBufferString(payload))
+	rr := httptest.NewRecorder()
+	h.Routes().ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rr.Code)
+	}
+
+	var got fraud.FraudScoreResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if got.Approved != true || got.FraudScore != 0 {
+		t.Fatalf("unexpected fallback response: %+v", got)
 	}
 }

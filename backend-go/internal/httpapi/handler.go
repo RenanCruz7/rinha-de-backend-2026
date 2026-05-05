@@ -1,14 +1,22 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 
 	"github.com/RenanCruz7/rinha-de-backend-2026/backend-go/internal/fraud"
 )
+
+var fallbackFraudScoreResponse = fraud.FraudScoreResponse{
+	Approved:   true,
+	FraudScore: 0.0,
+}
 
 type Handler struct {
 	engine fraud.Engine
@@ -45,15 +53,23 @@ func (h *Handler) fraudScore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.engine.Evaluate(r.Context(), req)
+	resp, err := h.evaluateSafely(r.Context(), req)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{
-			"error": "failed to evaluate fraud score",
-		})
-		return
+		log.Printf("warning: fallback fraud-score response for id=%q: %v", req.ID, err)
+		resp = fallbackFraudScoreResponse
 	}
 
 	writeJSON(w, http.StatusOK, resp)
+}
+
+func (h *Handler) evaluateSafely(ctx context.Context, req fraud.FraudScoreRequest) (resp fraud.FraudScoreResponse, err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("panic during fraud evaluation: %v", recovered)
+		}
+	}()
+
+	return h.engine.Evaluate(ctx, req)
 }
 
 func decodeBody(r *http.Request, dst any) error {
