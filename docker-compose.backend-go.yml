@@ -1,0 +1,44 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: backend-go/Dockerfile
+    container_name: rinha-go-api
+    ports:
+      - "9999:9999"
+    networks:
+      - rinha-net
+
+  k6-smoke:
+    image: grafana/k6:0.52.0
+    container_name: rinha-go-k6-smoke
+    depends_on:
+      - api
+    environment:
+      BASE_URL: http://api:9999
+      K6_NO_USAGE_REPORT: "true"
+    volumes:
+      - ./:/work
+    working_dir: /work
+    command: ["run", "test/smoke.js"]
+    networks:
+      - rinha-net
+
+  k6-load:
+    image: grafana/k6:0.52.0
+    container_name: rinha-go-k6-load
+    depends_on:
+      - api
+    environment:
+      BASE_URL: http://api:9999
+      K6_NO_USAGE_REPORT: "true"
+    volumes:
+      - ./:/work
+    working_dir: /work
+    command: ["run", "test/test.js"]
+    networks:
+      - rinha-net
+
+networks:
+  rinha-net:
+    driver: bridge

@@ -1,6 +1,8 @@
 import http from 'k6/http';
 import { check } from 'k6';
 
+const baseUrl = __ENV.BASE_URL || 'http://localhost:9999';
+
 const payload = {
     id: 'tx-smoke-001',
     transaction: {
@@ -43,7 +45,7 @@ export const options = {
 
 export default function smokeTest() {
     const res = http.post(
-        'http://localhost:9999/fraud-score',
+        `${baseUrl}/fraud-score`,
         JSON.stringify(payload),
         { headers: { 'Content-Type': 'application/json' }, timeout: '10s' },
     );
@@ -51,13 +53,13 @@ export default function smokeTest() {
     check(res, {
         'status is 200': (r) => r.status === 200,
         'body is json': (r) => {
-            try { JSON.parse(r.body); return true; } catch { return false; }
+            try { JSON.parse(r.body); return true; } catch (e) { return false; }
         },
         'approved is boolean': (r) => {
-            try { return typeof JSON.parse(r.body).approved === 'boolean'; } catch { return false; }
+            try { return typeof JSON.parse(r.body).approved === 'boolean'; } catch (e) { return false; }
         },
         'fraud_score is number': (r) => {
-            try { return typeof JSON.parse(r.body).fraud_score === 'number'; } catch { return false; }
+            try { return typeof JSON.parse(r.body).fraud_score === 'number'; } catch (e) { return false; }
         },
     });
 }

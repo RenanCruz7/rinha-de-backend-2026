@@ -12,6 +12,7 @@ const statsArr = new SharedArray('test-stats', function () {
     return [JSON.parse(open('./test-data.json')).stats];
 });
 const expectedStats = statsArr[0];
+const baseUrl = __ENV.BASE_URL || 'http://localhost:9999';
 
 const tpCount = new Counter('tp_count');
 const tnCount = new Counter('tn_count');
@@ -57,7 +58,7 @@ export default function () {
     const expectedApproved = entry.expected_approved;
 
     const res = http.post(
-        'http://localhost:9999/fraud-score',
+        `${baseUrl}/fraud-score`,
         JSON.stringify(entry.request),
         { headers: { 'Content-Type': 'application/json' }, timeout: '2001ms' }
     );
