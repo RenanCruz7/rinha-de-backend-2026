@@ -3,6 +3,7 @@ package fraud
 import (
 	"context"
 	"errors"
+	"time"
 )
 
 const (
@@ -12,6 +13,11 @@ const (
 
 type Engine interface {
 	Evaluate(ctx context.Context, req FraudScoreRequest) (FraudScoreResponse, error)
+}
+
+type TimedEngine interface {
+	Engine
+	EvaluateTimed(ctx context.Context, req FraudScoreRequest) (FraudScoreResponse, EvaluationTimings, error)
 }
 
 type Vectorizer interface {
@@ -29,6 +35,12 @@ type DecisionPolicy interface {
 type LabeledVector struct {
 	Label    string
 	Distance float64
+}
+
+type EvaluationTimings struct {
+	Vectorize time.Duration
+	Search    time.Duration
+	Decision  time.Duration
 }
 
 type PipelineEngine struct {
@@ -50,17 +62,35 @@ func NewPipelineEngine(vectorizer Vectorizer, searcher NeighborSearcher, decisio
 }
 
 func (e *PipelineEngine) Evaluate(ctx context.Context, req FraudScoreRequest) (FraudScoreResponse, error) {
+	resp, _, err := e.EvaluateTimed(ctx, req)
+	return resp, err
+}
+
+func (e *PipelineEngine) EvaluateTimed(ctx context.Context, req FraudScoreRequest) (FraudScoreResponse, EvaluationTimings, error) {
+	var timings EvaluationTimings
+
+	start := time.Now()
 	vector, err := e.vectorizer.Vectorize(req)
 	if err != nil {
-		return FraudScoreResponse{}, err
+		return FraudScoreResponse{}, timings, err
 	}
+	timings.Vectorize = time.Since(start)
 
+	start = time.Now()
 	neighbors, err := e.searcher.FindKNearest(ctx, vector, KNearestNeighbors)
 	if err != nil {
-		return FraudScoreResponse{}, err
+		return FraudScoreResponse{}, timings, err
+	}
+	timings.Search = time.Since(start)
+
+	start = time.Now()
+	resp, err := e.decision.Decide(neighbors)
+	timings.Decision = time.Since(start)
+	if err != nil {
+		return FraudScoreResponse{}, timings, err
 	}
 
-	return e.decision.Decide(neighbors)
+	return resp, timings, nil
 }
 
 type StubEngine struct{}
@@ -74,4 +104,9 @@ func (e *StubEngine) Evaluate(_ context.Context, _ FraudScoreRequest) (FraudScor
 		Approved:   true,
 		FraudScore: 0.0,
 	}, nil
+}
+
+func (e *StubEngine) EvaluateTimed(ctx context.Context, req FraudScoreRequest) (FraudScoreResponse, EvaluationTimings, error) {
+	resp, err := e.Evaluate(ctx, req)
+	return resp, EvaluationTimings{}, err
 }
