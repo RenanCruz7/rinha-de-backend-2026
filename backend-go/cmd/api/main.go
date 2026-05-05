@@ -42,7 +42,7 @@ func buildEngine() fraud.Engine {
 		return fraud.NewStubEngine()
 	}
 
-	searcher, err := fraud.NewBruteForceNeighborSearcher(referenceDataset)
+	searcher, err := fraud.NewNeighborSearcherFromEnv(referenceDataset)
 	if err != nil {
 		log.Printf("warning: using stub engine because searcher failed to build: %v", err)
 		return fraud.NewStubEngine()

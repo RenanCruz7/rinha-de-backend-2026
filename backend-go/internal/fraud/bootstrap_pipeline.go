@@ -38,7 +38,7 @@ func (p *ThresholdDecisionPolicy) Decide(neighbors []LabeledVector) (FraudScoreR
 
 	fraudCount := 0
 	for _, neighbor := range neighbors {
-		if strings.EqualFold(strings.TrimSpace(neighbor.Label), "fraud") {
+		if neighbor.IsFraud || strings.EqualFold(strings.TrimSpace(neighbor.Label), "fraud") {
 			fraudCount++
 		}
 	}

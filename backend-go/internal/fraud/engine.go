@@ -34,6 +34,7 @@ type DecisionPolicy interface {
 
 type LabeledVector struct {
 	Label    string
+	IsFraud  bool
 	Distance float64
 }
 

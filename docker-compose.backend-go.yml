@@ -4,6 +4,13 @@ services:
       context: .
       dockerfile: backend-go/Dockerfile
     container_name: rinha-go-api
+    environment:
+      SEARCH_MODE: "${SEARCH_MODE:-}"
+      SEARCH_WORKERS: "${SEARCH_WORKERS:-}"
+      IVF_CENTROIDS: "${IVF_CENTROIDS:-}"
+      IVF_NPROBE: "${IVF_NPROBE:-}"
+      IVF_MIN_CANDIDATES: "${IVF_MIN_CANDIDATES:-}"
+      IVF_SAMPLE_SIZE: "${IVF_SAMPLE_SIZE:-}"
     ports:
       - "9999:9999"
     networks:
